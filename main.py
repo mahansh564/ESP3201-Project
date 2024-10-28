@@ -229,8 +229,7 @@ class QLearningAgent:
             next_ax1_angle = state[0] + self.AllActions[action]*self.ax1_step_length
             self.robot.go_to_angle(angle1=next_ax1_angle)
             state = (next_ax1_angle,state[1])
-            
-            
+               
         elif(action == 'ax2_down' or action == 'ax2_up'):
             next_ax2_angle = state[1] + self.AllActions[action]*self.ax2_step_length
             self.robot.go_to_angle(angle2=next_ax2_angle)
@@ -266,15 +265,48 @@ class QLearningAgent:
             [new_state, reward] = self.step(state,action)
             self.update(state,action,new_state,reward)
             state = new_state
-            print("episode: ", i, "//epsilon: ", round(self.epsilon,1),"//action: ", action,"//random: ", israndom,"//state: ", state, "//reward: ", reward)
+            # print("episode: ", i, "//epsilon: ", round(self.epsilon,1),"//action: ", action,"//random: ", israndom,"//state: ", state, "//reward: ", reward)
+
+        return self.Q
+
+agent = QLearningAgent(0.85, 0.2, 1, 0.5, 0.75)
 
 
-agent = QLearningAgent(0.85, 0.2, 1, 0.5, 0.5)
+Q = agent.QLearning(10)
 
 
-agent.QLearning(400)
 
-# test = DisabledDog()
-# while(True):
-#     wait(100)
-#     print(test.distance_mm())
+
+
+
+
+
+
+
+
+
+
+
+import pickle
+
+# Create a sample dictionary to pickle
+data = {
+    "Q": Q
+}
+
+# Save the dictionary to a pickle file
+with open("data2.pkl", "wb") as file:
+    pickle.dump(data, file)
+
+import sys
+import base64
+
+def send_pickle_as_text(file_path):
+    with open(file_path, 'rb') as file:
+        encoded = base64.b64encode(file.read()).decode('utf-8')  # Encode to Base64 and convert to text
+        sys.stdout.write(encoded)  # Send as text
+        # sys.stdout.flush()  # Ensure all data is sent immediately
+
+
+# Example usage
+send_pickle_as_text("data2.pkl")
