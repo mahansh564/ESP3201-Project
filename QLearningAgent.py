@@ -1,132 +1,12 @@
-#!/usr/bin/env pybricks-micropython
-from pybricks.hubs import EV3Brick
-from pybricks.ev3devices import (Motor, TouchSensor, ColorSensor,
-                                 InfraredSensor, UltrasonicSensor, GyroSensor)
-from pybricks.parameters import Port, Stop, Direction, Button, Color
-from pybricks.tools import wait, StopWatch, DataLog
-from pybricks.robotics import DriveBase
-from pybricks.media.ev3dev import SoundFile, ImageFile
-
-import random, math
+import socket
+from RobotCrawler import RoboCrawler
+import random
+import math
 import pickle
-import sys
-import base64
-from os import path
-
-file_name = "saved_Q.pkl"
-
-class RoboCrawler:
-    def __init__(self):
-        self.ev3 = EV3Brick()
-        self.ax11 = Motor(Port.A)
-        self.ax12 = Motor(Port.D)
-        self.ax2 = Motor(Port.B)
-        self.endstop_ax1 = TouchSensor(Port.S4)
-        # self.endstop_ax2 = TouchSensor(Port.S1)
-        self.ultrasonic = UltrasonicSensor(Port.S3)
-        self.gyro = GyroSensor(Port.S2)
-
-        self.Homing_Speed = 80
-        self.ax1_speed = self.Homing_Speed
-        self.ax2_speed = self.Homing_Speed*8
-
-        self.ax1_angle_limits = [0,100]
-        self.ax2_angle_limits = [0,4500]
-    
-    def TestSensor(self, sensor, seconds):
-        watch = StopWatch()
-
-        while watch.time() < seconds*1000:
-            wait(100)
-            # (done with if else because match case is not supported)
-            if sensor == "endstop1":
-                print("endstop1 state is: " + str(self.endstop_ax1.pressed()))
-            elif sensor == "endstop2":
-                print("endstop2 state is: " + str(self.endstop_ax2.pressed()))
-            elif sensor == "motor11":
-                print("Motor11 encoder state is: " + str(self.ax11.angle()))
-            elif sensor == "motor12":
-                print("Motor12 encoder state is: " + str(self.ax12.angle()))
-            elif sensor == "motor2":
-                print("Motor2 encoder state is: " + str(self.ax2.angle()))
-            elif sensor == "ultrasonic":
-                print("ultrasonic distance state is: " + str(self.ultrasonic.distance()))
-            elif sensor == "gyro":
-                print("gyro angle state is: " + str(self.gyro.angle()))
-            else:
-                print("Unknown sensor")  # Default case if no match
-
-
-                
-
-
-    def Homing(self):
-
-        # Axis 1 
-        while(True):
-            self.ax11.run(-self.Homing_Speed)
-            self.ax12.run(-self.Homing_Speed)            
-            if(self.endstop_ax1.pressed()):
-                self.ax11.hold()
-                self.ax12.hold()
-                self.ax11.reset_angle(0)
-                self.ax12.reset_angle(0)
-
-                self.ev3.speaker.beep()
-                break; 
-        
-        # Axis 2
-
-        self.ax2.run_until_stalled(-self.Homing_Speed*10, then=Stop.HOLD, duty_limit=40)
-        self.ax2.reset_angle(0)
-        self.ev3.speaker.beep()
-        # while(True):
-        #     self.ax2.run(-self.Homing_Speed*10)
-        #     if(self.endstop_ax2.pressed()):
-        #         self.ax2.hold()
-        #         self.ax2.reset_angle(0)
-        #         self.ev3.speaker.beep()
-        #         break; 
-    
-    def go_to_angle(self, angle1=-1, angle2=-1):
-
-        if(angle1 < 0):
-            if(angle1 < -1):
-                print("NEGATIVE ANGLE SENT TO AX1: ", angle1)
-            angle1 = self.ax11.angle()
-
-
-        if(angle2 < 0):
-            if(angle2 < -1):
-                print("NEGATIVE ANGLE SENT TO AX2: ", angle2)
-            angle2 = self.ax2.angle()
-
-
-        self.ax11.run_target(self.ax1_speed, angle1, then=Stop.HOLD, wait=False)                
-        self.ax12.run_target(self.ax1_speed, angle1, then=Stop.HOLD, wait=True)
-        self.ax2.run_target(self.ax2_speed*8, angle2, then=Stop.HOLD, wait=True)
-
-    def Walk(self, steps):
-
-        for i in range(steps):
-            self.go_to_angle(70,4000)
-            self.go_to_angle(30,1000)
-
-    def distance_mm(self): #sensor has to be angled up a bit#
-        # return self.ultrasonic.distance() * math.sin(math.pi/2 - self.gyro.angle()*math.pi/180)
-        return self.ultrasonic.distance()
-
-    def beep(self, n):
-        for i in range(n):
-            wait(300)
-            self.ev3.speaker.beep()
-
-    def getState(self):
-        return(self.ax11.angle(), self.ax2.angle())
 
 class QLearningAgent:
-    def __init__(self, start_epsilon, end_epsilon, exp_multiplier,  alpha, gamma, Q = {}):
-        self.robot = RoboCrawler()
+    def __init__(self, conn, start_epsilon, end_epsilon, exp_multiplier,  alpha, gamma, Q = {}):
+        self.robot = RoboCrawler(conn)
         self.n_steps = 10
         self.ax1_step_length = int(self.robot.ax1_angle_limits[1]/self.n_steps)
         self.ax2_step_length = int(self.robot.ax2_angle_limits[1]/self.n_steps)
@@ -252,12 +132,16 @@ class QLearningAgent:
         else:
             reward = total_distance #negative penalized more
 
-        wait(200) #wait for motion to finish completly
+        #wait(200) #wait for motion to finish completly
         return [state, reward]
     
     def QLearning(self,number_of_episodes):
         self.robot.Homing()
         state = (0,0)
+
+         # Initialize socket connection to the plotting server
+        plot_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        plot_socket.connect(('localhost', 65432))
         for i in range(number_of_episodes):
 
             if(self.inital_epsilon*math.exp(-(i/number_of_episodes)*self.exp_multiplier) > self.end_epsilon):
@@ -270,35 +154,10 @@ class QLearningAgent:
             [new_state, reward] = self.step(state,action)
             self.update(state,action,new_state,reward)
             state = new_state
+            # Send the Q matrix to the plotting server
+            serialized_Q = pickle.dumps(self.Q)
+            plot_socket.sendall(serialized_Q)
             print("episode: ", i, "//epsilon: ", round(self.epsilon,1),"//action: ", action,"//random: ", israndom,"//state: ", state, "//reward: ", reward)
 
+        plot_socket.close()
         return self.Q
-
-# Q = {}
-# print("Previous Q matrix: ", path.exists(file_name))
-# if path.exists(file_name):
-#     with open(file_name, 'rb') as file:
-#         data = pickle.load(file)
-#         Q = data["Q"]
-
-# agent = QLearningAgent(0.85, 0.2, 1, 0.5, 0.75, Q if Q else {})
-
-# Q = agent.QLearning(400)
-
-# data = {
-#     "Q": Q
-# }
-
-# with open(file_name, "wb") as file:
-#     pickle.dump(data, file)
-
-# def send_pickle_as_text(file_path):
-#     with open(file_path, 'rb') as file:
-#         encoded = base64.b64encode(file.read()).decode('utf-8')
-#         sys.stdout.write(encoded)
-
-# send_pickle_as_text(file_name)
-
-r = RoboCrawler()
-r.Homing()
-r.Walk(10)

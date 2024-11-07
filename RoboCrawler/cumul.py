@@ -123,182 +123,131 @@ class RoboCrawler:
 
     def getState(self):
         return(self.ax11.angle(), self.ax2.angle())
-
+    
 class QLearningAgent:
-    def __init__(self, start_epsilon, end_epsilon, exp_multiplier,  alpha, gamma, Q = {}):
+    def __init__(self, start_epsilon, end_epsilon, exp_multiplier, alpha, gamma, Q={}):
         self.robot = RoboCrawler()
         self.n_steps = 10
-        self.ax1_step_length = int(self.robot.ax1_angle_limits[1]/self.n_steps)
-        self.ax2_step_length = int(self.robot.ax2_angle_limits[1]/self.n_steps)
-        
+        self.ax1_step_length = int(self.robot.ax1_angle_limits[1] / self.n_steps)
+        self.ax2_step_length = int(self.robot.ax2_angle_limits[1] / self.n_steps)
+
         self.Q = Q
         print("Previous Q matrix: ", Q)
-        self.inital_epsilon = start_epsilon #(start exploration prob)
-        self.end_epsilon = end_epsilon #( end exploration prob)
+        self.inital_epsilon = start_epsilon
+        self.end_epsilon = end_epsilon
         self.exp_multiplier = exp_multiplier
-        self.epsilon = 1 
-       
-        self.alpha = alpha #(learning rate)
-        self.gamma = gamma #(discount rate)
+        self.epsilon = 1
 
-        self.AllActions = {'ax1_down':1,
-                           'ax1_up':-1,
-                           'ax2_down':1,
-                           'ax2_up':-1}
-    
-        
+        self.alpha = alpha  # learning rate
+        self.gamma = gamma  # discount factor
+
+        self.AllActions = {'ax1_down': 1,
+                           'ax1_up': -1,
+                           'ax2_down': 1,
+                           'ax2_up': -1}
 
     def getPossibleActions(self, state):
-
         possible_actions = []
-        if(state[0] + self.ax1_step_length < self.robot.ax1_angle_limits[1]):
+        if state[0] + self.ax1_step_length < self.robot.ax1_angle_limits[1]:
             possible_actions.append('ax1_down')
-        if(state[0] - self.ax1_step_length > self.robot.ax1_angle_limits[0]):
-            possible_actions.append('ax1_up')        
-        if(state[1] + self.ax2_step_length < self.robot.ax2_angle_limits[1]):
-            possible_actions.append('ax2_down')                            
-        if(state[1] - self.ax2_step_length > self.robot.ax2_angle_limits[0]):
-            possible_actions.append('ax2_up')                            
-                             
+        if state[0] - self.ax1_step_length > self.robot.ax1_angle_limits[0]:
+            possible_actions.append('ax1_up')
+        if state[1] + self.ax2_step_length < self.robot.ax2_angle_limits[1]:
+            possible_actions.append('ax2_down')
+        if state[1] - self.ax2_step_length > self.robot.ax2_angle_limits[0]:
+            possible_actions.append('ax2_up')
         return possible_actions
 
-    
     def getQValue(self, state, action):
-        if (state,action) not in self.Q:
-            return 0.0
-        else:
-            return self.Q[(state,action)]
-    
+        return self.Q.get((state, action), 0.0)
+
     def getValue(self, state):
-
-        if len(self.getPossibleActions(state)) == 0:
+        possible_actions = self.getPossibleActions(state)
+        if not possible_actions:
             return 0.0
-
-        max_q = []
-        
-        for a in self.getPossibleActions(state):
-
-            if len(max_q) == 0 or self.getQValue(state, a) > max_q[-1]:
-                max_q.append(self.getQValue(state, a))
-        
-        return max_q[-1]   
-
+        return max(self.getQValue(state, action) for action in possible_actions)
 
     def getPolicy(self, state):
-        if len(self.getPossibleActions(state)) == 0:
-            return 0.0
-        
-        max_q = []
-        max_q_a = []
-        
-        for a in self.getPossibleActions(state):
-            if len(max_q) == 0 or self.getQValue(state, a) > max_q[-1]:
-                max_q.append(self.getQValue(state, a))
-                max_q_a.append(a)
-        
-        if(max_q.count(max(max_q))>1):
-            action = random.choice(max_q_a[-max_q.count(max(max_q)):])
-            
-        else:
-            action = max_q_a[-1]
-            
-        return action
-
-
+        possible_actions = self.getPossibleActions(state)
+        if not possible_actions:
+            return None
+        return max(possible_actions, key=lambda action: self.getQValue(state, action))
 
     def getAction(self, state):
-        if len(self.getPossibleActions(state)) == 0:
+        possible_actions = self.getPossibleActions(state)
+        if not possible_actions:
             return None
-        
         if random.random() < self.epsilon:
-            return [1 ,random.choice(self.getPossibleActions(state))]
+            return [1, random.choice(possible_actions)]
         else:
             return [0, self.getPolicy(state)]
-        
-    def update(self, state, action, nextState, reward):
-        
-        if (state,action) not in self.Q:
-            self.Q[(state,action)] = 0.0
-        nextStateValue = self.getValue(nextState)
-        if nextStateValue == None:
-            nextStateValue = 0.0
-
-
-        self.Q[(state,action)] = self.Q[(state,action)] + self.alpha*(reward + self.gamma*nextStateValue - self.Q[(state,action)])
 
     def step(self, state, action):
-
         start_distance = self.robot.distance_mm()
-        
-        if(action == 'ax1_down' or action == 'ax1_up'):
-            next_ax1_angle = state[0] + self.AllActions[action]*self.ax1_step_length
+
+        if action == 'ax1_down' or action == 'ax1_up':
+            next_ax1_angle = state[0] + self.AllActions[action] * self.ax1_step_length
             self.robot.go_to_angle(angle1=next_ax1_angle)
-            state = (next_ax1_angle,state[1])
-               
-        elif(action == 'ax2_down' or action == 'ax2_up'):
-            next_ax2_angle = state[1] + self.AllActions[action]*self.ax2_step_length
+            state = (next_ax1_angle, state[1])
+        elif action == 'ax2_down' or action == 'ax2_up':
+            next_ax2_angle = state[1] + self.AllActions[action] * self.ax2_step_length
             self.robot.go_to_angle(angle2=next_ax2_angle)
-            state = (state[0],next_ax2_angle)
+            state = (state[0], next_ax2_angle)
         else:
             print("NOT A VALID ACTION")
-            
+
         total_distance = self.robot.distance_mm() - start_distance
-        
-        if abs(total_distance) < 10: #ignore small values created by inertia of arm
+        if abs(total_distance) < 10:
             total_distance = 0
 
-        if total_distance > 0:
-            reward = total_distance/10
-        else:
-            reward = total_distance #negative penalized more
-
-        wait(200) #wait for motion to finish completly
+        reward = total_distance / 10 if total_distance > 0 else total_distance
+        wait(200)
         return [state, reward]
-    
-    def QLearning(self,number_of_episodes):
-        self.robot.Homing()
-        state = (0,0)
-        for i in range(number_of_episodes):
 
-            if(self.inital_epsilon*math.exp(-(i/number_of_episodes)*self.exp_multiplier) > self.end_epsilon):
-                self.epsilon = self.inital_epsilon*math.exp(-(i/number_of_episodes)*self.exp_multiplier)
+    def update(self, state, action, nextState, cumulative_reward):
+        if (state, action) not in self.Q:
+            self.Q[(state, action)] = 0.0
+        nextStateValue = self.getValue(nextState)
+        self.Q[(state, action)] += self.alpha * (cumulative_reward + self.gamma * nextStateValue - self.Q[(state, action)])
+
+    def QLearning(self, number_of_episodes):
+        self.robot.Homing()
+        for i in range(number_of_episodes):
+            state = (0, 0)
+            cumulative_reward = 0  # Initialize cumulative reward for this episode
+            episode_transitions = []  # Store transitions for the episode
+
+            # Decay epsilon
+            if self.inital_epsilon * math.exp(-(i / number_of_episodes) * self.exp_multiplier) > self.end_epsilon:
+                self.epsilon = self.inital_epsilon * math.exp(-(i / number_of_episodes) * self.exp_multiplier)
             else:
                 self.epsilon = self.end_epsilon
 
-            
-            [israndom, action] = self.getAction(state)
-            [new_state, reward] = self.step(state,action)
-            self.update(state,action,new_state,reward)
-            state = new_state
-            print("episode: ", i, "//epsilon: ", round(self.epsilon,1),"//action: ", action,"//random: ", israndom,"//state: ", state, "//reward: ", reward)
+            # Run the episode
+            for _ in range(35):  # Set a fixed number of steps per episode or terminate based on a condition
+                israndom, action = self.getAction(state)
+                next_state, reward = self.step(state, action)
+                episode_transitions.append((state, action, next_state))
+                cumulative_reward += reward
+                state = next_state
+
+            # Update Q-values based on the cumulative reward after each episode
+            for state, action, next_state in episode_transitions:
+                self.update(state, action, next_state, cumulative_reward)
+
+            print("Episode", i, "| Epsilon: ", self.epsilon, "| Cumulative Reward: ", cumulative_reward, "| Random: ", israndom)
 
         return self.Q
 
-# Q = {}
-# print("Previous Q matrix: ", path.exists(file_name))
-# if path.exists(file_name):
-#     with open(file_name, 'rb') as file:
-#         data = pickle.load(file)
-#         Q = data["Q"]
+Q = {}
+print("Previous Q matrix: ", path.exists(file_name))
+if path.exists(file_name):
+    with open(file_name, 'rb') as file:
+        data = pickle.load(file)
+        Q = data["Q"]
 
-# agent = QLearningAgent(0.85, 0.2, 1, 0.5, 0.75, Q if Q else {})
+if Q:
+    print(Q)
 
-# Q = agent.QLearning(400)
-
-# data = {
-#     "Q": Q
-# }
-
-# with open(file_name, "wb") as file:
-#     pickle.dump(data, file)
-
-# def send_pickle_as_text(file_path):
-#     with open(file_path, 'rb') as file:
-#         encoded = base64.b64encode(file.read()).decode('utf-8')
-#         sys.stdout.write(encoded)
-
-# send_pickle_as_text(file_name)
-
-r = RoboCrawler()
-r.Homing()
-r.Walk(10)
+# agent = QLearningAgent(0.85, 0.2, 1, 0.8, 0.70, Q if Q else {})
+# Q = agent.QLearning(100)
