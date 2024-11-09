@@ -3,52 +3,109 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import socket
 import pickle
+import os
+import matplotlib.colors as mcolors
+from matplotlib.patches import Polygon
 
-def plot_matrix(Q):
-    keys = list(Q.keys())
-    values = list(Q.values())
 
-    x_vals = [k[0][0] for k in keys]
-    y_vals = [k[0][1] for k in keys]
+def plot_matrix(Q, i, folder='plots'):
+    # Create the directory if it doesn't exist
+    if not os.path.exists(folder):
+        os.makedirs(folder)
 
-    # Get unique x and y values for the axes
-    x_unique = sorted(set(x_vals))
-    y_unique = sorted(set(y_vals))
-    
-    # Create a new array where each original cell is represented by a 2x2 subgrid
-    expanded_heatmap_data = np.zeros((len(y_unique) * 2, len(x_unique) * 2))
-    transformed_Q = {}
+    grid_size = (12, 12)
 
-    for (ax_tuple, label), value in Q.items():
-        if ax_tuple not in transformed_Q:
-            transformed_Q[ax_tuple] = {}
-        transformed_Q[ax_tuple][label] = value
+    # Create a 2D array to store the Q-values for each cell's actions
+    q_values_grid = np.zeros((grid_size[0], grid_size[1], 4))  # 4 actions for each state (up, down, left, right)
 
-    # Populate the expanded data array with the values in each 2x2 subgrid
-    for ((x, y), ax), value in Q.items():
-        x_index = x_unique.index(x) * 2
-        y_index = y_unique.index(y) * 2
-        expanded_heatmap_data[y_index, x_index] = transformed_Q[(x, y)].get('ax1_down', 0)
-        expanded_heatmap_data[y_index+1, x_index] = transformed_Q[(x, y)].get('ax1_up', 0)
-        expanded_heatmap_data[y_index, x_index+1] = transformed_Q[(x, y)].get('ax2_down', 0)
-        expanded_heatmap_data[y_index+1, x_index+1] = transformed_Q[(x, y)].get('ax2_up', 0)
+    # Define the actions
+    actions = ['ax1_down', 'ax1_up', 'ax2_down', 'ax2_up']
+    ax1_angle_limits = [0, 100]
+    ax2_angle_limits = [0, 4500]
 
-    # Plot heatmap with centered labels
-    plt.figure(figsize=(20, 15), dpi=100)
-    sns.heatmap(
-        expanded_heatmap_data, annot=True, fmt=".1f", cmap="RdYlGn", cbar=True,
-        xticklabels=[f"{x}\n" for x in x_unique],
-        yticklabels=[f"{y}\n" for y in y_unique],
-        square=True  # Maintain square cells for better alignment
-    )
-    
-    plt.xticks(np.arange(0.5, len(x_unique) * 2, 2), x_unique)
-    plt.yticks(np.arange(0.5, len(y_unique) * 2, 2), y_unique)
+    # Map states to grid indices
+    def map_state_to_grid(ax1, ax2):
+        ax1_idx = int((ax1 - ax1_angle_limits[0]) / (ax1_angle_limits[1] - ax1_angle_limits[0]) * (grid_size[0] - 2))
+        ax2_idx = int((ax2 - ax2_angle_limits[0]) / (ax2_angle_limits[1] - ax2_angle_limits[0]) * (grid_size[1] - 2))
+        return ax1_idx, ax2_idx
 
-    plt.xlabel("X values")
-    plt.ylabel("Y values")
-    plt.show()
-    plt.pause(0.01)
+    # Fill the grid with Q-values
+    for (state, action), value in Q.items():
+        ax1, ax2 = state
+        ax1_idx, ax2_idx = map_state_to_grid(ax1, ax2)
+        action_index = actions.index(action)
+        q_values_grid[ax1_idx, ax2_idx, action_index] = value
+
+    # Normalize the Q-values to map them between 0 and 1 for colormap usage
+    min_q_value = np.min(q_values_grid)
+    max_q_value = np.max(q_values_grid)
+    norm = mcolors.Normalize(vmin=min_q_value, vmax=max_q_value)
+
+    # Create the colormap (red to green)
+    cmap = mcolors.LinearSegmentedColormap.from_list("redgreen", ["red", "green"])
+
+    # Plot the grid
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.set_aspect('equal')  # Ensure the cells are square
+
+    # Create the grid
+    for ax2_idx in range(grid_size[1]):
+        for ax1_idx in range(grid_size[0]):
+            # Get Q-values for the current cell and actions
+            q_values = q_values_grid[ax1_idx, ax2_idx, :]
+
+            # Coordinates for the four triangles in the current cell
+            x_pos = ax1_idx
+            y_pos = ax2_idx
+
+            # Define the four corners of the cell
+            cell_center = (x_pos + 0.5, y_pos + 0.5)
+            left_bottom = (x_pos, y_pos)
+            right_bottom = (x_pos + 1, y_pos)
+            top_left = (x_pos, y_pos + 1)
+            top_right = (x_pos + 1, y_pos + 1)
+
+            # Draw each triangle for the actions
+            triangles = [
+                [cell_center, right_bottom, top_right], #ax1_down
+                [cell_center, left_bottom, top_left],   # ax1_up
+                [cell_center, top_right, top_left], # ax2_up
+                [cell_center, right_bottom, left_bottom]  # ax2_down
+            ]
+            
+            # Plot each triangle with the corresponding color
+            for idx, triangle in enumerate(triangles):
+                value = q_values[idx]
+                # If the Q-value is 0.0, set the color to white
+                if value == 0.0:
+                    color = 'white'
+                else:
+                    color = cmap(norm(value))  # Get the corresponding color for the Q-value
+                poly = Polygon(triangle, closed=True, facecolor=color, edgecolor='black')
+                ax.add_patch(poly)
+
+                # Place the Q-value text in the center of the triangle
+                text_x = np.mean([triangle[0][0], triangle[1][0], triangle[2][0]])
+                text_y = np.mean([triangle[0][1], triangle[1][1], triangle[2][1]])
+                ax.text(text_x, text_y, f"{value:.0f}", ha='center', va='center', fontsize=8, color='black' if value != 0.0 else 'white')
+
+    # Set labels for the axes to represent ax1 and ax2
+    ax.set_xticks(np.arange(0.5, grid_size[1], 1))  # Set ticks at the center of each cell (x)
+    ax.set_yticks(np.arange(0.5, grid_size[0], 1))  # Set ticks at the center of each cell (y)
+    ax.set_xticklabels([f"{(i)*10}" for i in range(grid_size[1]-1)] + [''])
+    ax.set_yticklabels([f"{(i)*450}" for i in range(grid_size[0]-1)] + [''])
+    plt.title('Episode ' + str(5 * i))
+
+    # Save the figure to the specified folder
+    plot_filename = os.path.join(folder, 'q_matrix_plot_' + str(i) + '.png')
+    plot_filename_sec = os.path.join(folder, 'q_matrix_plot.png')
+    # plt.savefig(plot_filename)
+    plt.savefig(plot_filename_sec)
+
+    # Close the plot to free up memory
+    plt.close(fig)
+
+
 
 def start_server():
     plt.ion()  # Enable interactive mode for live updates
@@ -60,16 +117,26 @@ def start_server():
     conn, addr = server_socket.accept()
     print("Connected by", addr)
 
+    i = 0
     while True:
-        data = conn.recv(4096)
+        data = conn.recv(20000)
         if not data:
+            print("No Data")
             break
+        
         Q = pickle.loads(data)
+
         if plt.get_fignums():
             plt.close()
-        plot_matrix(Q)
+
+        plot_matrix(Q=Q,i=i)
+        i += 1
+    
+    
     conn.close()
     server_socket.close()
+
+    
 
 if __name__ == "__main__":
     start_server()

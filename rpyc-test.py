@@ -8,11 +8,19 @@ conn.execute("print('Hello Slave. I am your master!')")
 
 from RobotCrawler import RoboCrawler
 from QLearningAgent import QLearningAgent
+import pickle
 
 
 # r = RoboCrawler(conn)
 # r.Homing()
 # r.Walk(10)
-Q = {}
-agent = QLearningAgent(conn, 0.85, 0.2, 1, 0.5, 0.75, Q if Q else {})
-Q = agent.QLearning(100)
+
+
+
+
+with open('Q_Save.pkl', 'rb') as file:
+    Q = pickle.load(file)
+
+agent = QLearningAgent(conn, 0.95, 0.2, 1.2, 0.75, 0.95, Q if Q else {})
+Q = agent.QLearning(1000)
+

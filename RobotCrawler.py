@@ -16,6 +16,7 @@ class RoboCrawler:
         self.ultrasonic = sensors.UltrasonicSensor('in3')
         self.gyro = sensors.GyroSensor('in2')
 
+
         self.Homing_Speed = 80
         self.ax1_speed = self.Homing_Speed
         self.ax2_speed = self.Homing_Speed * 8

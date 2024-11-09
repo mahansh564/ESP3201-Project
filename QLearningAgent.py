@@ -8,11 +8,18 @@ class QLearningAgent:
     def __init__(self, conn, start_epsilon, end_epsilon, exp_multiplier,  alpha, gamma, Q = {}):
         self.robot = RoboCrawler(conn)
         self.n_steps = 10
-        self.ax1_step_length = int(self.robot.ax1_angle_limits[1]/self.n_steps)
-        self.ax2_step_length = int(self.robot.ax2_angle_limits[1]/self.n_steps)
+        self.ax1_step_length = int(self.robot.ax1_angle_limits[1]/(self.n_steps))
+        self.ax2_step_length = int(self.robot.ax2_angle_limits[1]/(self.n_steps))
         
         self.Q = Q
-        print("Previous Q matrix: ", Q)
+        if Q:
+            print("Previous Q matrix used")
+        else:
+            for a in ['ax1_down','ax1_up','ax2_down','ax2_up']:
+                for i in range(self.n_steps+1):
+                    for j in range(self.n_steps+1):
+                        Q[((i*self.ax1_step_length, j*self.ax2_step_length),a)] = 0
+
         self.inital_epsilon = start_epsilon #(start exploration prob)
         self.end_epsilon = end_epsilon #( end exploration prob)
         self.exp_multiplier = exp_multiplier
@@ -31,13 +38,13 @@ class QLearningAgent:
     def getPossibleActions(self, state):
 
         possible_actions = []
-        if(state[0] + self.ax1_step_length < self.robot.ax1_angle_limits[1]):
+        if(state[0] + self.ax1_step_length <= self.robot.ax1_angle_limits[1]):
             possible_actions.append('ax1_down')
-        if(state[0] - self.ax1_step_length > self.robot.ax1_angle_limits[0]):
+        if(state[0] - self.ax1_step_length >= self.robot.ax1_angle_limits[0]):
             possible_actions.append('ax1_up')        
-        if(state[1] + self.ax2_step_length < self.robot.ax2_angle_limits[1]):
+        if(state[1] + self.ax2_step_length <= self.robot.ax2_angle_limits[1]):
             possible_actions.append('ax2_down')                            
-        if(state[1] - self.ax2_step_length > self.robot.ax2_angle_limits[0]):
+        if(state[1] - self.ax2_step_length >= self.robot.ax2_angle_limits[0]):
             possible_actions.append('ax2_up')                            
                              
         return possible_actions
@@ -123,14 +130,18 @@ class QLearningAgent:
             print("NOT A VALID ACTION")
             
         total_distance = self.robot.distance_mm() - start_distance
+        if(self.robot.distance_mm() > 500) or (self.robot.distance_mm() < 50):
+            input("RESET ROBOT POSITION THEN PRESS ENTER:")
         
         if abs(total_distance) < 10: #ignore small values created by inertia of arm
-            total_distance = 0
+            total_distance = -1
 
         if total_distance > 0:
-            reward = total_distance/10
+            reward = total_distance
         else:
             reward = total_distance #negative penalized more
+
+
 
         #wait(200) #wait for motion to finish completly
         return [state, reward]
@@ -154,10 +165,26 @@ class QLearningAgent:
             [new_state, reward] = self.step(state,action)
             self.update(state,action,new_state,reward)
             state = new_state
+            
             # Send the Q matrix to the plotting server
-            serialized_Q = pickle.dumps(self.Q)
-            plot_socket.sendall(serialized_Q)
+            if i%5 == 0:
+                serialized_Q = pickle.dumps(self.Q)
+                import sys
+                # print(sys.getsizeof(serialized_Q))
+                plot_socket.sendall(serialized_Q)
+                
+
             print("episode: ", i, "//epsilon: ", round(self.epsilon,1),"//action: ", action,"//random: ", israndom,"//state: ", state, "//reward: ", reward)
 
+        with open('Q_Save.pkl', 'wb') as file:
+            pickle.dump(self.Q, file)
+
         plot_socket.close()
+        self.robot.ax11.stop_action = 'coast'
+        self.robot.ax12.stop_action = 'coast'
+        self.robot.ax2.stop_action = 'coast'
+        self.robot.ax11.stop()
+        self.robot.ax12.stop()
+        self.robot.ax2.stop()
+
         return self.Q
