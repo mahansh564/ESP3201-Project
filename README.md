@@ -1,19 +1,38 @@
 # ESP3201-Project
 
-SSH Connection:
+## SSH Connection:
+
 ssh robot@ev3dev.local
 maker
 
+## Python and lib setup:
 
-Python Versions:
-
-Install virtual enviroment with Pyhton 3.5.10 and rpyc 3.3.0 for rpyc-test.py file
-Install virtual enviroment with Pyhton 3.11for plot.py file
-
-run plot.py then rpyc-test.py
+Install virtual enviroment with Pyhton 3.5.10 and rpyc 3.3.0 
+Install virtual enviroment with Pyhton 3.11
 
 
-Things tested:
+## Running the training:
+
+Connect via shh to EV3
+
+Then run:
+```
+sh rpyc_server.sh
+```
+
+In the Python 3.11 env run:
+```
+python plot.py
+```
+
+In the Python 3.5.10 env run:
+```
+python RunTraining.py
+```
+
+
+
+### Things tested:
 
 big negative reward
 negative reward on no movement actions
