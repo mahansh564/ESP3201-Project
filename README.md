@@ -39,3 +39,12 @@ negative reward on no movement actions
 big statespace
 
 varying all constants
+
+
+### notes:
+
+it learned to add weight to end effector in order to pull itself
+
+avoided local minima where it cannot progress without taking a step back
+
+diffuculty learning in high 
