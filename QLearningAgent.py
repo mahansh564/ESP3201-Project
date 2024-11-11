@@ -38,6 +38,26 @@ class QLearningAgent:
                            'ax2_up':-1}
     
         
+    def server(self, port = 65433):
+        plot_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        plot_socket.connect_ex(('localhost', port))
+        return plot_socket
+
+    def pickle_data(self, action, israndom, state, new_state, reward, next_action = None):
+        tx_data = {}
+        tx_data['Q'] = self.Q
+        tx_data['current_action'] = action
+        tx_data['is_random'] = israndom
+        tx_data['state'] = state
+        tx_data['new_state'] = new_state
+        tx_data['reward'] = reward
+        tx_data['epsilon'] = self.epsilon
+
+        if next_action != None:
+            tx_data['next_action'] = next_action
+
+        serialized_Q = pickle.dumps(tx_data)
+        return serialized_Q
 
     def getPossibleActions(self, state):
 
@@ -145,17 +165,45 @@ class QLearningAgent:
         else:
             reward = total_distance*5 #negative penalized more
 
-
-
         #wait(200) #wait for motion to finish completly
         return [state, reward]
     
+    def run(self, number_of_steps):
+        #plot_socket = self.server()
+        plot_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        plot_socket.connect(('localhost', 65433))
+        self.robot.Homing()
+        self.epsilon = 0
+        state = (self.init_ax1,self.init_ax2)
+        self.robot.go_to_angle(self.init_ax1,self.init_ax2)
+        for i in range(number_of_steps):
+            old_state = state
+            [israndom, action] = self.getAction(state)
+            [new_state, reward] = self.step(state,action)
+            next_action = self.getPolicy(new_state)
+            state = new_state
+            print("step: ", i, "//action: ", action, "//random: ", israndom,"//state: ", state, "//reward: ", reward)
+
+            serialized_Q = self.pickle_data(action, israndom, old_state, new_state, reward, next_action)
+            plot_socket.sendall(serialized_Q)
+        
+        plot_socket.close()
+        self.robot.ax11.stop_action = 'coast'
+        self.robot.ax12.stop_action = 'coast'
+        self.robot.ax2.stop_action = 'coast'
+        self.robot.ax11.stop()
+        self.robot.ax12.stop()
+        self.robot.ax2.stop()
+
+        return self.Q
+                
+
     def QLearning(self,number_of_episodes):
         self.robot.Homing()
         state = (self.init_ax1,self.init_ax2)
         self.robot.go_to_angle(self.init_ax1,self.init_ax2)
 
-         # Initialize socket connection to the plotting server
+        # Initialize socket connection to the plotting server
         plot_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         plot_socket.connect(('localhost', 65433))
         for i in range(number_of_episodes):
@@ -173,19 +221,9 @@ class QLearningAgent:
             
             # Send the Q matrix to the plotting server
 
-            tx_data = {}
-            tx_data['Q'] = self.Q
-            tx_data['current_action'] = action
-            tx_data['is_random'] = israndom
-            tx_data['state'] = state
-            tx_data['new_state'] = new_state
-            tx_data['reward'] = reward
-            tx_data['epsilon'] = self.epsilon
+            serialized_Q = self.pickle_data(action, israndom, state, new_state, reward)
 
             if i%5 == 0:
-                serialized_Q = pickle.dumps(tx_data)
-                # import sys
-                # print(sys.getsizeof(serialized_Q))
                 plot_socket.sendall(serialized_Q)
                 
 
