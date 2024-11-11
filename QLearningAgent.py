@@ -172,14 +172,26 @@ class QLearningAgent:
             state = new_state
             
             # Send the Q matrix to the plotting server
+
+            tx_data = {}
+            tx_data['Q'] = self.Q
+            tx_data['current_action'] = action
+            tx_data['is_random'] = israndom
+            tx_data['state'] = state
+            tx_data['new_state'] = new_state
+            tx_data['reward'] = reward
+            tx_data['epsilon'] = self.epsilon
+
             if i%5 == 0:
-                serialized_Q = pickle.dumps(self.Q)
-                import sys
+                serialized_Q = pickle.dumps(tx_data)
+                # import sys
                 # print(sys.getsizeof(serialized_Q))
                 plot_socket.sendall(serialized_Q)
                 
 
             print("episode: ", i, "//epsilon: ", round(self.epsilon,1),"//action: ", action,"//random: ", israndom,"//state: ", state, "//reward: ", reward)
+
+        
 
         filename = os.path.join('Q-Saves', 'Q_Save.pkl')
         with open(filename, 'wb') as file:

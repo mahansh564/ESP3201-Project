@@ -124,12 +124,12 @@ def start_server():
             print("No Data")
             break
         
-        Q = pickle.loads(data)
+        rx_data = pickle.loads(data)
 
         if plt.get_fignums():
             plt.close()
 
-        plot_matrix(Q=Q,i=i)
+        plot_matrix(Q=rx_data['Q'],i=i)
         i += 1
     
     
