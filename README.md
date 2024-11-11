@@ -16,19 +16,19 @@ Install virtual enviroment with Pyhton 3.11
 Connect via shh to EV3
 
 Then run:
-'''
+```
 sh rpyc_server.sh
-'''
+```
 
 In the Python 3.11 env run:
-'''
+```
 python plot.py
-'''
+```
 
 In the Python 3.5.10 env run:
-'''
+```
 python RunTraining.py
-'''
+```
 
 
 
