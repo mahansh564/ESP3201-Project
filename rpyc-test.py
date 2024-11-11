@@ -21,6 +21,7 @@ import pickle
 with open('Q_Save.pkl', 'rb') as file:
     Q = pickle.load(file)
 
-agent = QLearningAgent(conn, 0.95, 0.2, 1.2, 0.75, 0.95, Q if Q else {})
+# Q = {}
+agent = QLearningAgent(conn, 0, 0, 1, 0.5, 0.75, Q if Q else {}, 80,2700)
 Q = agent.QLearning(1000)
 

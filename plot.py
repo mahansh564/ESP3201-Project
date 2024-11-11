@@ -13,7 +13,7 @@ def plot_matrix(Q, i, folder='plots'):
     if not os.path.exists(folder):
         os.makedirs(folder)
 
-    grid_size = (12, 12)
+    grid_size = (7, 7)
 
     # Create a 2D array to store the Q-values for each cell's actions
     q_values_grid = np.zeros((grid_size[0], grid_size[1], 4))  # 4 actions for each state (up, down, left, right)
@@ -92,8 +92,8 @@ def plot_matrix(Q, i, folder='plots'):
     # Set labels for the axes to represent ax1 and ax2
     ax.set_xticks(np.arange(0.5, grid_size[1], 1))  # Set ticks at the center of each cell (x)
     ax.set_yticks(np.arange(0.5, grid_size[0], 1))  # Set ticks at the center of each cell (y)
-    ax.set_xticklabels([f"{(i)*10}" for i in range(grid_size[1]-1)] + [''])
-    ax.set_yticklabels([f"{(i)*450}" for i in range(grid_size[0]-1)] + [''])
+    ax.set_xticklabels([f"{(i)*20}" for i in range(grid_size[1]-1)] + [''])
+    ax.set_yticklabels([f"{(i)*900}" for i in range(grid_size[0]-1)] + [''])
     plt.title('Episode ' + str(5 * i))
 
     # Save the figure to the specified folder
@@ -110,7 +110,7 @@ def plot_matrix(Q, i, folder='plots'):
 def start_server():
     plt.ion()  # Enable interactive mode for live updates
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(('localhost', 65432))
+    server_socket.bind(('localhost', 65433))
     server_socket.listen(1)
     print("Plotting server is waiting for data...")
 

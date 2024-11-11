@@ -3,13 +3,17 @@ from RobotCrawler import RoboCrawler
 import random
 import math
 import pickle
+import os
 
 class QLearningAgent:
-    def __init__(self, conn, start_epsilon, end_epsilon, exp_multiplier,  alpha, gamma, Q = {}):
+    def __init__(self, conn, start_epsilon, end_epsilon, exp_multiplier,  alpha, gamma, Q = {}, init_ax1 = 0, init_ax2 = 0):
         self.robot = RoboCrawler(conn)
-        self.n_steps = 10
+        self.n_steps = 5
         self.ax1_step_length = int(self.robot.ax1_angle_limits[1]/(self.n_steps))
         self.ax2_step_length = int(self.robot.ax2_angle_limits[1]/(self.n_steps))
+
+        self.init_ax1 = init_ax1
+        self.init_ax2 = init_ax2
         
         self.Q = Q
         if Q:
@@ -134,12 +138,12 @@ class QLearningAgent:
             input("RESET ROBOT POSITION THEN PRESS ENTER:")
         
         if abs(total_distance) < 10: #ignore small values created by inertia of arm
-            total_distance = -1
+            total_distance = 0
 
         if total_distance > 0:
             reward = total_distance
         else:
-            reward = total_distance #negative penalized more
+            reward = total_distance*5 #negative penalized more
 
 
 
@@ -148,11 +152,12 @@ class QLearningAgent:
     
     def QLearning(self,number_of_episodes):
         self.robot.Homing()
-        state = (0,0)
+        state = (self.init_ax1,self.init_ax2)
+        self.robot.go_to_angle(self.init_ax1,self.init_ax2)
 
          # Initialize socket connection to the plotting server
         plot_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        plot_socket.connect(('localhost', 65432))
+        plot_socket.connect(('localhost', 65433))
         for i in range(number_of_episodes):
 
             if(self.inital_epsilon*math.exp(-(i/number_of_episodes)*self.exp_multiplier) > self.end_epsilon):
@@ -176,7 +181,8 @@ class QLearningAgent:
 
             print("episode: ", i, "//epsilon: ", round(self.epsilon,1),"//action: ", action,"//random: ", israndom,"//state: ", state, "//reward: ", reward)
 
-        with open('Q_Save.pkl', 'wb') as file:
+        filename = os.path.join('Q-Saves', 'Q_Save.pkl')
+        with open(filename, 'wb') as file:
             pickle.dump(self.Q, file)
 
         plot_socket.close()
