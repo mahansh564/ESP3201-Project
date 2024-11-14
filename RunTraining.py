@@ -4,7 +4,7 @@ import rpyc
 # Use the hostname or IP address of the ev3dev device.
 # If this fails, verify your IP connectivty via ``ping X.X.X.X``
 conn = rpyc.classic.connect('ev3dev.local')
-#conn = rpyc.classic.connect('169.254.188.243')
+# conn = rpyc.classic.connect('169.254.244.90')
 
 conn.execute("print('Hello Slave. I am your master!')")
 
@@ -13,7 +13,9 @@ from QLearningAgent import QLearningAgent
 import pickle
 import os 
 
-optimal_Q = 'Q_Save 5x5 working.pkl'
+Q = {}
+
+optimal_Q = 'Q_Save 5x5 optimized.pkl'
 filename = os.path.join('Q-Saves', optimal_Q if optimal_Q else 'Q_Save.pkl')
 with open(filename, 'rb') as file:
     Q = pickle.load(file)

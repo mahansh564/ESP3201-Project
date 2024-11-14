@@ -137,7 +137,7 @@ class QLearningAgent:
 
         self.Q[(state,action)] = self.Q[(state,action)] + self.alpha*(reward + self.gamma*nextStateValue - self.Q[(state,action)])
 
-    def step(self, state, action):
+    def step(self, state, action, no_distance=0):
 
         start_distance = self.robot.distance_mm()
         
@@ -154,8 +154,9 @@ class QLearningAgent:
             print("NOT A VALID ACTION")
             
         total_distance = self.robot.distance_mm() - start_distance
-        if(self.robot.distance_mm() > 500) or (self.robot.distance_mm() < 50):
-            input("RESET ROBOT POSITION THEN PRESS ENTER:")
+        if(not no_distance):
+            if(self.robot.distance_mm() > 500) or (self.robot.distance_mm() < 50):
+                input("RESET ROBOT POSITION THEN PRESS ENTER:")
         
         if abs(total_distance) < 10: #ignore small values created by inertia of arm
             total_distance = 0
@@ -179,7 +180,7 @@ class QLearningAgent:
         for i in range(number_of_steps):
             old_state = state
             [israndom, action] = self.getAction(state)
-            [new_state, reward] = self.step(state,action)
+            [new_state, reward] = self.step(state,action,1)
             next_action = self.getPolicy(new_state)
             state = new_state
             print("step: ", i, "//action: ", action, "//random: ", israndom,"//state: ", state, "//reward: ", reward)
@@ -213,15 +214,20 @@ class QLearningAgent:
             else:
                 self.epsilon = self.end_epsilon
 
-            
+            old_state = state
             [israndom, action] = self.getAction(state)
             [new_state, reward] = self.step(state,action)
             self.update(state,action,new_state,reward)
+
+
+            next_action = action
+            old_state = new_state
+            
             state = new_state
             
             # Send the Q matrix to the plotting server
 
-            serialized_Q = self.pickle_data(action, israndom, state, new_state, reward)
+            serialized_Q = self.pickle_data(action, israndom, old_state, new_state, reward, next_action)
 
             if i%5 == 0:
                 plot_socket.sendall(serialized_Q)

@@ -14,7 +14,7 @@ class RoboCrawler:
         self.ax2 = motors.MediumMotor('outB')
         self.endstop_ax1 = sensors.TouchSensor('in4')
         self.ultrasonic = sensors.UltrasonicSensor('in3')
-        self.gyro = sensors.GyroSensor('in2')
+        # self.gyro = sensors.GyroSensor('in2')
 
 
         self.Homing_Speed = 80
